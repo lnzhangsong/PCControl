@@ -1,0 +1,34 @@
+# Rust 构建产物
+rust-server/target/
+**/target/
+
+# Android 构建产物
+android/.gradle/
+android/build/
+android/app/build/
+android/.idea/
+android/local.properties
+*.apk
+*.aab
+
+# 打包/运行时产物
+apk/
+server/logs/
+server/ffmpeg.exe
+server/pccontrol-server.exe
+server/pccontrol-server.exe.WebView2/
+server/pin.txt
+server/console.log
+server/*.log
+pc-server/.venv/
+pc-server/__pycache__/
+pc-server/server.log
+
+# 截图等临时文件
+*.png.tmp
+s.png
+
+# 系统/编辑器
+.DS_Store
+Thumbs.db
+*.swp

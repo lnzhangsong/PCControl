@@ -1,0 +1,6 @@
+# PC 端运行所需依赖（Python 3.8+）
+# 音量：精确控制 0-100 与静音
+pycaw>=20240210
+comtypes>=1.2.0
+# 亮度：外接显示器 DDC/CI（笔记本内置屏自动走 WMI，不需要这个）
+monitorcontrol>=3.1.0

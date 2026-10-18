@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f4f5f7">
+<title>PC 遥控器</title>
+<style>
+  :root{
+    --bg:#f4f5f7; --card:#ffffff; --line:#e6e8ec;
+    --text:#14181f; --sub:#7b8494; --accent:#3b6ef5; --accent-soft:#e8eefc;
+    --ok:#1fb673; --warn:#e0902a; --radius:18px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{
+    margin:0;padding:18px 16px 40px;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    max-width:520px;margin-inline:auto;
+  }
+  h1{font-size:19px;margin:4px 0 2px;letter-spacing:-.2px}
+  .sub{color:var(--sub);font-size:12.5px;margin-bottom:16px;display:flex;align-items:center;gap:6px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--sub);flex:none}
+  .dot.on{background:var(--ok);box-shadow:0 0 0 3px rgba(31,182,115,.15)}
+  .dot.off{background:#e05b5b}
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 16px 14px;margin-bottom:12px;box-shadow:0 1px 2px rgba(20,24,31,.04);
+  }
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .label{font-size:13px;color:var(--sub);display:flex;align-items:center;gap:7px}
+  .value{font-size:30px;font-weight:650;letter-spacing:-1px;font-variant-numeric:tabular-nums}
+  .value small{font-size:14px;font-weight:500;color:var(--sub);margin-left:2px}
+  input[type=range]{
+    -webkit-appearance:none;width:100%;height:26px;background:transparent;margin:10px 0 4px;
+  }
+  input[type=range]::-webkit-slider-runnable-track{
+    height:8px;border-radius:4px;background:linear-gradient(to right,var(--accent) var(--p,50%),#eceef2 var(--p,50%));
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:26px;height:26px;border-radius:50%;background:#fff;
+    border:1px solid #d3d7de;box-shadow:0 2px 6px rgba(20,24,31,.18);margin-top:-9px;
+  }
+  .btns{display:flex;gap:8px}
+  button{
+    font:inherit;border:1px solid var(--line);background:#fafbfc;color:var(--text);
+    border-radius:13px;padding:11px 0;flex:1;font-size:13.5px;font-weight:550;
+    cursor:pointer;transition:transform .08s,background .15s;
+  }
+  button:active{transform:scale(.96);background:#eef1f5}
+  button.icon{font-size:17px;flex:none;width:52px}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.on{background:var(--accent-soft);border-color:#c6d6fa;color:var(--accent)}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:13px}
+  .grid4 button{
+    aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:5px;font-size:11px;padding:0;border-radius:16px;
+  }
+  .grid4 .g{font-size:21px;line-height:1}
+  .tag{font-size:11px;color:var(--warn);background:#fdf4e6;border:1px solid #f4e3c4;
+       padding:2px 7px;border-radius:7px;margin-left:6px}
+  .hint{font-size:11.5px;color:var(--sub);margin-top:9px;line-height:1.5}
+  #gate{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;
+        justify-content:center;padding:24px;z-index:9}
+  #gate .card{padding:22px}
+  input[type=text],input[type=password],input[type=number]{
+    width:100%;font:inherit;padding:12px 14px;border:1px solid var(--line);border-radius:12px;
+    background:#fafbfc;color:var(--text);margin-top:9px;
+  }
+  input:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<!-- 配对 -->
+<div id="gate">
+  <div class="card">
+    <h1>连接这台电脑</h1>
+    <div class="sub">输入配对码（在这台电脑上打开本页时不需要）</div>
+    <input id="pin" inputmode="numeric" maxlength="6" placeholder="配对码，例如 428913">
+    <div class="btns" style="margin-top:12px">
+      <button class="primary" onclick="connect()">连接</button>
+    </div>
+    <div class="hint" id="gateMsg"></div>
+  </div>
+</div>
+
+<!-- 控制台 -->
+<div id="app" class="hidden">
+  <h1 id="pcName">连接到电脑…</h1>
+  <div class="sub"><span class="dot" id="dot"></span><span id="pcInfo">—</span></div>
+
+  <!-- 音量 -->
+  <div class="card">
+    <div class="row">
+      <div class="label">🔊 音量</div>
+      <div class="value"><span id="volVal">--</span><small>%</small></div>
+    </div>
+    <input type="range" id="vol" min="0" max="100" value="50">
+    <div class="btns">
+      <button class="icon" onclick="step(-5)">−</button>
+      <button class="icon" id="muteBtn" onclick="toggleMute()">🔇</button>
+      <button class="icon" onclick="step(5)">+</button>
+    </div>
+  </div>
+
+  <!-- 亮度 -->
+  <div class="card">
+    <div class="row">
+      <div class="label">☀️ 亮度</div>
+      <div class="value"><span id="briVal">--</span><small>%</small></div>
+    </div>
+    <input type="range" id="bri" min="0" max="100" value="80">
+    <div class="row" style="margin-top:7px">
+      <span class="tag" id="modeTag" style="margin:0">—</span>
+      <span class="tag hidden" id="hdrTag" style="margin:0;color:#7b5cc4;background:#f4effc;border-color:#e3d7f8">HDR 开</span>
+    </div>
+    <div class="hint" id="briHint"></div>
+    <button class="hidden" id="hdrBtn" onclick="toggleHdr()" style="width:100%;margin-top:9px">关闭 HDR，启用真实背光</button>
+  </div>
+
+  <!-- 媒体 -->
+  <div class="card">
+    <div class="label" style="margin-bottom:11px">▶️ 媒体播放</div>
+    <div class="btns">
+      <button class="icon" onclick="media('prev')">⏮</button>
+      <button onclick="media('play_pause')" style="flex:2">⏯ 播放 / 暂停</button>
+      <button class="icon" onclick="media('next')">⏭</button>
+    </div>
+  </div>
+
+  <!-- 电源 -->
+  <div class="card">
+    <div class="label" style="margin-bottom:11px">⚡ 电源</div>
+    <div class="grid4">
+      <button onclick="power('lock')"><span class="g">🔒</span>锁屏</button>
+      <button onclick="power('screen_off')"><span class="g">🌙</span>关屏</button>
+      <button onclick="power('sleep')"><span class="g">💤</span>休眠</button>
+      <button onclick="reconnect()"><span class="g">🔄</span>重连</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let pin = localStorage.getItem('pc_pin') || '';
+let busy = false;
+
+async function api(path, body){
+  const opt = {headers:{'X-Pin':pin,'Content-Type':'application/json'},cache:'no-store'};
+  if(body !== undefined){ opt.method='POST'; opt.body=JSON.stringify(body); }
+  const r = await fetch(path, opt);
+  if(r.status === 401){ showGate('配对码不正确'); throw new Error('401'); }
+  return r.json();
+}
+
+function paintRange(el){
+  const p = (el.value - el.min) / (el.max - el.min) * 100;
+  el.style.setProperty('--p', p + '%');
+}
+
+function setStatus(ok, text){
+  $('dot').className = 'dot ' + (ok ? 'on' : 'off');
+  if(text) $('pcInfo').textContent = text;
+}
+
+async function refresh(){
+  try{
+    const s = await api('/api/status');
+    $('pcName').textContent = s.name;
+    setStatus(true, `${s.ip} · ${s.os}`);
+    if(!busy){
+      if(s.volume !== null){ $('vol').value = s.volume; $('volVal').textContent = s.volume; paintRange($('vol')); }
+      $('muteBtn').textContent = s.muted ? '🔇' : '🔊';
+      $('muteBtn').classList.toggle('on', !!s.muted);
+      if(s.brightness !== null){ $('bri').value = s.brightness; $('briVal').textContent = s.brightness; paintRange($('bri')); }
+    }
+    const modeText = {
+      ddc:  '真实显示器背光 · DDC/CI',
+      wmi:  '系统背光 · WMI',
+      sdr:  'HDR SDR 白点亮度',
+      soft: '软件调光（非真实背光）'
+    }[s.brightnessMode] || '未知方式';
+    $('modeTag').textContent = modeText;
+    $('hdrTag').classList.toggle('hidden', !s.hdr);
+    const needHdrOff = s.hdr && s.brightnessMode !== 'ddc';
+    $('hdrBtn').classList.toggle('hidden', !needHdrOff);
+    $('briHint').textContent = needHdrOff
+      ? 'HDR 已开启，显示器会锁死背光。关掉 HDR 就能恢复真实背光调节。'
+      : (s.brightnessReason || (s.canVolume ? '' : '音量接口不可用'));
+  }catch(e){ setStatus(false, '连接断开，正在重试…'); }
+}
+
+async function toggleHdr(){
+  busy = true;
+  $('hdrBtn').textContent = '正在切换 HDR…';
+  try{ await api('/api/hdr', {enabled:false}); }
+  catch(e){ setStatus(false, '切换失败'); }
+  finally{ busy = false; $('hdrBtn').textContent = '关闭 HDR，启用真实背光'; }
+  refresh();
+}
+
+async function act(path, body){
+  busy = true;
+  try{ return await api(path, body); }
+  catch(e){ setStatus(false, '操作失败'); }
+  finally{ setTimeout(()=>{ busy = false; }, 400); }
+}
+
+$('vol').addEventListener('input', e => { $('volVal').textContent = e.target.value; paintRange(e.target); });
+$('vol').addEventListener('change', e => act('/api/volume', {value:+e.target.value}).then(refresh));
+$('bri').addEventListener('input', e => { $('briVal').textContent = e.target.value; paintRange(e.target); });
+$('bri').addEventListener('change', e => act('/api/brightness', {value:+e.target.value}));
+async function step(d){ await act('/api/volume/step', {delta:d}); refresh(); }
+async function toggleMute(){ await act('/api/mute', {}); refresh(); }
+async function media(a){ await act('/api/media', {action:a}); }
+async function power(a){ await act('/api/power', {action:a}); }
+
+function showGate(msg){
+  $('gate').classList.remove('hidden'); $('app').classList.add('hidden');
+  $('gateMsg').textContent = msg || '';
+  $('pin').value = pin;
+}
+
+async function connect(){
+  const v = ($('pin').value || '').trim();
+  if(!/^\d{6}$/.test(v)) return $('gateMsg').textContent = '请输入 6 位数字配对码';
+  pin = v;
+  try{
+    await api('/api/status');
+    localStorage.setItem('pc_pin', pin);
+    $('gate').classList.add('hidden'); $('app').classList.remove('hidden');
+    refresh();
+  }catch(e){ $('gateMsg').textContent = '连接失败：' + (e.message === '401' ? '配对码不正确' : '网络不通'); }
+}
+
+function reconnect(){
+  busy = false;
+  refresh();
+  setTimeout(refresh, 800);
+}
+
+$('pin').addEventListener('keydown', e => { if(e.key === 'Enter') connect(); });
+
+// 启动
+paintRange($('vol')); paintRange($('bri'));
+(async () => {
+  try{
+    await api('/api/status');
+    $('gate').classList.add('hidden'); $('app').classList.remove('hidden');
+    refresh();
+  }catch(e){
+    if(!pin) showGate('');
+  }
+})();
+setInterval(()=>{ if(!$('app').classList.contains('hidden')) refresh(); }, 2000);
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) refresh(); });
+</script>
+</body>
+</html>
