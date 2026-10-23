@@ -163,6 +163,21 @@ fn handle(st: &AppState, mut req: Request) {
             )
         }
 
+        // 桌面图标分类：先看一眼有哪些
+        ("GET", "/api/desktop") => respond_json(req, 200, crate::desktop::status()),
+
+        // 桌面图标分类：执行整理（可撤销）
+        ("POST", "/api/desktop/tidy") => match crate::desktop::tidy() {
+            Ok(v) => respond_json(req, 200, v),
+            Err(e) => respond_json(req, 500, json!({"ok": false, "error": e})),
+        },
+
+        // 桌面图标分类：撤销上一次整理
+        ("POST", "/api/desktop/undo") => match crate::desktop::undo() {
+            Ok(v) => respond_json(req, 200, v),
+            Err(e) => respond_json(req, 400, json!({"ok": false, "error": e})),
+        },
+
         // 实时画面串流：ffmpeg H.264 硬编 → MPEG-TS，直接推给播放器
         ("GET", "/api/stream") => {
             let mut w = 1920u32;

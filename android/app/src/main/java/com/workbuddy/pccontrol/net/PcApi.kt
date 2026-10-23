@@ -103,6 +103,12 @@ class PcApi(private val host: String, private val port: Int, private val pin: St
     suspend fun writeClipboard(text: String): JSONObject =
         request("/api/clipboard", JSONObject().put("text", text))
 
+    /** 桌面图标分类整理。返回 {"moved":数量,...} */
+    suspend fun tidyDesktop(): JSONObject = request("/api/desktop/tidy", JSONObject())
+
+    /** 撤销上一次桌面整理。返回 {"restored":数量,...} */
+    suspend fun undoDesktop(): JSONObject = request("/api/desktop/undo", JSONObject())
+
     /**
      * 上传文件。返回电脑端的保存路径。
      * [open] 每次调用都要给出一个新的输入流，避免把整个文件读进内存。

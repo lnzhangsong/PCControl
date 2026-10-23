@@ -3,8 +3,13 @@
 //! 单文件可执行程序，无运行库依赖，适合开机自启。
 //! 协议与 Android App / 网页控制台完全兼容。
 
+// 关键：用 windows 子系统，双击只出现程序窗口，不再额外弹一个黑框终端。
+// 代价是没有 stdout，日志一律走 exe 同级 logs/server.log（util::log 已处理）。
+#![cfg_attr(windows, windows_subsystem = "windows")]
+
 mod audio;
 mod clipboard;
+mod desktop;
 mod discovery;
 mod display;
 mod http;
@@ -41,7 +46,28 @@ fn main() {
     // 只导出图标然后退出（用于重新生成 assets/app.ico）
     if let Some(p) = std::env::args().find_map(|a| a.strip_prefix("--write-icon=").map(String::from)) {
         let ok = tray::write_ico_file(std::path::Path::new(&p));
-        println!("{} {}", if ok { "已写出" } else { "写出失败" }, p);
+        util::log(format!("{} {}", if ok { "已写出" } else { "写出失败" }, p));
+        return;
+    }
+
+    // 一键整理桌面：给 bat 脚本 / 快捷方式用的，整理完弹个结果就退出
+    if std::env::args().any(|a| a == "--tidy-desktop") {
+        let (title, text) = match desktop::tidy() {
+            Ok(v) => {
+                let n = v.get("moved").and_then(|x| x.as_u64()).unwrap_or(0);
+                let path = v.get("desktop").and_then(|x| x.as_str()).unwrap_or("");
+                util::log(format!("桌面整理完成，移动 {n} 个文件"));
+                (
+                    "桌面已整理",
+                    format!("把 {n} 个文件按类型归好了。\n\n桌面：{path}\n\n想还原的话，在 PC Remote 面板里点「撤销上次」。"),
+                )
+            }
+            Err(e) => {
+                util::log(format!("桌面整理失败: {e}"));
+                ("整理失败", e)
+            }
+        };
+        show_message(&title, &text);
         return;
     }
 
@@ -81,7 +107,7 @@ fn main() {
                 hardware = true;
             }
             "--version" | "-V" => {
-                println!("pccontrol-server {}", env!("CARGO_PKG_VERSION"));
+                util::log(format!("pccontrol-server {}", env!("CARGO_PKG_VERSION")));
                 return;
             }
             "--help" | "-h" => {
@@ -189,6 +215,17 @@ fn main() {
     }
 }
 
+/// 弹一个系统提示框（一键脚本没有控制台，只能用窗口告诉用户结果）
+fn show_message(title: &str, text: &str) {
+    use windows::core::PCWSTR;
+    use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONINFORMATION, MB_OK};
+    let t: Vec<u16> = title.encode_utf16().chain(std::iter::once(0)).collect();
+    let m: Vec<u16> = text.encode_utf16().chain(std::iter::once(0)).collect();
+    unsafe {
+        let _ = MessageBoxW(None, PCWSTR(m.as_ptr()), PCWSTR(t.as_ptr()), MB_OK | MB_ICONINFORMATION);
+    }
+}
+
 /// 让进程按物理像素渲染（Per-Monitor V2）。
 /// 不做这一步，在 150%/200% 缩放的高分屏上整个窗口会被系统位图拉伸，文字发虚。
 fn enable_dpi_awareness() {
@@ -225,14 +262,15 @@ fn message_loop() {
 }
 
 fn print_help() {
-    println!("pccontrol-server {}", env!("CARGO_PKG_VERSION"));
-    println!("用法: pccontrol-server [--port 8765] [--pin 123456]");
-    println!("  --port, -p <端口>   HTTP 端口，默认 8765");
-    println!("  --pin <6位数字>     配对码，不传则沿用同目录 pin.txt 或随机生成");
-    println!("  --no-tray          不显示托盘图标（纯后台服务）");
-    println!("  --hidden           启动时不显示控制面板，只在后台运行");
-    println!("  --no-webview       不使用 WebView2 面板，回退到旧版原生面板");
-    println!("  --hw               面板走 GPU 渲染（默认软件渲染，兼容性更好）");
+    util::log(format!("pccontrol-server {}", env!("CARGO_PKG_VERSION")));
+    util::log("用法: pccontrol-server [--port 8765] [--pin 123456]");
+    util::log("  --port, -p <端口>   HTTP 端口，默认 8765");
+    util::log("  --pin <6位数字>     配对码，不传则沿用同目录 pin.txt 或随机生成");
+    util::log("  --no-tray          不显示托盘图标（纯后台服务）");
+    util::log("  --hidden           启动时不显示控制面板，只在后台运行");
+    util::log("  --no-webview       不使用 WebView2 面板，回退到旧版原生面板");
+    util::log("  --hw               面板走 GPU 渲染（默认软件渲染，兼容性更好）");
+    util::log("  --tidy-desktop     直接整理一次桌面图标然后退出（可写进 bat 一键整理）");
 }
 
 fn load_or_create_pin(dir: &std::path::Path) -> String {

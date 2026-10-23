@@ -1,7 +1,6 @@
 //! 本机信息与日志
 
 use std::fs::{File, OpenOptions};
-use std::io::Write;
 use std::net::UdpSocket;
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
@@ -18,11 +17,16 @@ pub fn init_log(dir: &Path) {
     let _ = LOG_FILE.set(Mutex::new(file));
 }
 
-/// 输出到控制台，同时追加到日志文件（开机自启时窗口是隐藏的）
+/// 输出到控制台（如果有的话），同时追加到日志文件。
+///
+/// 程序是 windows 子系统（双击只有一个窗口，没有黑框），
+/// 这时写 stdout 会失败——忽略错误就行，日志照样进文件，不能 panic。
 pub fn log(msg: impl AsRef<str>) {
+    use std::io::Write;
     let line = format!("[{}] {}\n", now_hms(), msg.as_ref());
-    print!("{}", line);
-    let _ = std::io::stdout().flush();
+    let mut out = std::io::stdout();
+    let _ = out.write_all(line.as_bytes());
+    let _ = out.flush();
     if let Some(lock) = LOG_FILE.get() {
         if let Ok(mut guard) = lock.lock() {
             if let Some(f) = guard.as_mut() {

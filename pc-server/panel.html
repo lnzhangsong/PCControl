@@ -263,6 +263,18 @@ input[type=range]:disabled{opacity:.45;cursor:default}
     <button class="switch" id="auto" role="switch" aria-checked="false"><span></span></button>
   </section>
 
+  <section class="card">
+    <div class="cardHead">
+      <span class="cardTitle">桌面图标</span>
+      <span class="hint" id="deskCount" style="margin-top:0">—</span>
+    </div>
+    <div class="hint" id="deskSummary">正在扫描…</div>
+    <div class="foot" style="margin-top:10px">
+      <button class="btn primary" id="tidy">一键整理</button>
+      <button class="btn" id="untidy">撤销上次</button>
+    </div>
+  </section>
+
   <footer class="foot">
     <button class="btn primary" id="web">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M3.6 12h16.8M12 3.6c4.4 4.6 4.4 12.2 0 16.8-4.4-4.6-4.4-12.2 0-16.8z"/></svg>
@@ -404,6 +416,39 @@ $('copyAll').addEventListener('click', async () => {
   }
 });
 
+// ---------- 桌面图标分类 ----------
+async function refreshDesk(){
+  const sum = $('deskSummary'), cnt = $('deskCount');
+  try {
+    const r = await api('/api/desktop');
+    if (!r || r.ok === false) { sum.textContent = '桌面扫描失败'; return; }
+    const keys = Object.keys(r.summary || {});
+    cnt.textContent = (r.total || 0) + ' 项待归类';
+    sum.textContent = keys.length
+      ? keys.map(k => k + ' ' + r.summary[k]).join(' · ')
+      : '桌面很干净，没有散着的文件';
+  } catch (_) { sum.textContent = '桌面扫描失败'; }
+}
+
+$('tidy').addEventListener('click', async () => {
+  if (!confirm('把桌面上散着的文件按类型归类到文件夹里。\n（文件夹本身不动，整理完可以随时点「撤销上次」还原）\n\n继续？')) return;
+  try {
+    const r = await api('/api/desktop/tidy', {});
+    if (r && r.ok) toast(`已整理 ${r.moved} 个文件`);
+    else toast((r && r.error) || '整理失败');
+    refreshDesk();
+  } catch (_) { toast('整理失败'); }
+});
+
+$('untidy').addEventListener('click', async () => {
+  try {
+    const r = await api('/api/desktop/undo', {});
+    if (r && r.ok) toast(`已还原 ${r.restored} 个文件`);
+    else toast((r && r.error) || '没有可撤销的整理记录');
+    refreshDesk();
+  } catch (_) { toast('撤销失败'); }
+});
+
 $('web').addEventListener('click', () => act('web'));
 $('log').addEventListener('click', () => act('log'));
 $('quit').addEventListener('click', () => {
@@ -421,6 +466,7 @@ async function act(name){
 
 paint($('vol')); paint($('bri'));
 refresh();
+refreshDesk();
 setInterval(refresh, 1000);
 </script>
 </body>

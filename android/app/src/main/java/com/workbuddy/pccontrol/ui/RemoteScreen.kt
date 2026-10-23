@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.CleaningServices
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.Lock
@@ -90,6 +91,7 @@ fun RemoteScreen(
     var briDrag by remember { mutableStateOf<Float?>(null) }
     var notice by remember { mutableStateOf("") }
     var confirmShutdown by remember { mutableStateOf(false) }
+    var confirmTidy by remember { mutableStateOf(false) }
     var uploading by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
@@ -344,6 +346,9 @@ fun RemoteScreen(
                     picker.launch(arrayOf("*/*"))
                 }
                 ToolAction(Icons.Rounded.ContentPaste, "剪贴板", Modifier.weight(1f), onClick = onClipboard)
+                ToolAction(Icons.Rounded.CleaningServices, "整理桌面", Modifier.weight(1f)) {
+                    confirmTidy = true
+                }
             }
         }
 
@@ -376,6 +381,43 @@ fun RemoteScreen(
             },
             dismissButton = {
                 TextButton(onClick = { confirmShutdown = false }) {
+                    Text("取消", color = TextSub)
+                }
+            },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = CardBg,
+        )
+    }
+
+    if (confirmTidy) {
+        AlertDialog(
+            onDismissRequest = { confirmTidy = false },
+            title = { Text("整理电脑桌面？", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextMain) },
+            text = {
+                Text(
+                    "把桌面上散着的文件按类型归类（游戏 / 软件 / 文档 / 图片 …），文件夹本身不动。整理完可以在电脑面板上「撤销上次」还原。",
+                    fontSize = 13.sp, color = TextSub, lineHeight = 19.sp,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmTidy = false
+                    scope.launch {
+                        notice = try {
+                            val r = api.tidyDesktop()
+                            val n = r.optInt("moved", 0)
+                            if (r.optBoolean("ok")) "桌面已整理，归类 $n 个文件"
+                            else r.optString("error", "整理失败")
+                        } catch (e: Exception) {
+                            e.message ?: "整理失败"
+                        }
+                    }
+                }) {
+                    Text("整理", color = Accent, fontWeight = FontWeight.SemiBold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmTidy = false }) {
                     Text("取消", color = TextSub)
                 }
             },
